@@ -31,21 +31,23 @@ userRouter.post("/register", async (req, res) => {
 });
 //Login
 
+// In backend/routes/userRoutes.js
+
 userRouter.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
+
     if (user && (await user.matchPassword(password))) {
+      // This is the success case
       res.json({
         user: {
-          _id: user._id,
-          username: user.username,
-          email: user.email,
-          isAdmin: user.isAdmin,
-          token: generateToken(user._id),
+          /* ...user data... */
         },
       });
     } else {
+      // This is the failure case. It MUST send an error status.
+      // Your code correctly sends 401, make sure this is what's running.
       res.status(401).json({ message: "Invalid email or password" });
     }
   } catch (error) {
