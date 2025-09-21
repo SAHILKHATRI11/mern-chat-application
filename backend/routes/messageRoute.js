@@ -30,7 +30,7 @@ messageRouter.get("/:groupId", async (req, res) => {
   try {
     const message = await Message.find({ group: req.params.groupId })
       .populate("sender", "username email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: 1 });
     res.json(message);
   } catch (error) {
     res.status(400).json({ message: error.message });

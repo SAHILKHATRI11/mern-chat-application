@@ -32,7 +32,9 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
   const toast = useToast();
 
   const currentUser = JSON.parse(localStorage.getItem("userInfo") || {});
-
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
   useEffect(() => {
     if (selectedGroup && socket) {
       //fetch messages
