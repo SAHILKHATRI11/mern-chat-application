@@ -38,13 +38,16 @@ userRouter.post("/login", async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    if (user && (await user.matchPassword(password))) {
-      // This is the success case
-      res.json({
-        user: {
-          /* ...user data... */
-        },
-      });
+   // NEW, CORRECTED CODE
+if (user && (await user.matchPassword(password))) {
+  res.json({
+    _id: user._id,
+    username: user.username,
+    email: user.email,
+    isAdmin: user.isAdmin,
+    token: generateToken(user._id),
+  });
+}
     } else {
       // This is the failure case. It MUST send an error status.
       // Your code correctly sends 401, make sure this is what's running.
