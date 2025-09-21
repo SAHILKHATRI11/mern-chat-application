@@ -135,7 +135,7 @@ export default function LandingPage() {
                   zIndex: -1,
                 }}
               >
-                Manish ChatApp
+                Sahil ChatApp
               </Text>
               <br />
               <Text as="span" color="blue.400">
