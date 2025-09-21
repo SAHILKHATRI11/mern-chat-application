@@ -25,26 +25,31 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    // In frontend/src/pages/Login.jsx inside handleSubmit
+
     try {
       const { data } = await axios.post(`${apiURL}/api/users/login`, {
         email,
         password,
       });
-      console.log(data.user);
-      console.log("Login API Response:", data);
-      //save the token into localstorage
-      localStorage.setItem("userInfo", JSON.stringify(data.user));
-      navigate("/chat");
+
+      // Check if the user object exists in the response
+      if (data.user) {
+        //save the token into localstorage
+        localStorage.setItem("userInfo", JSON.stringify(data.user));
+        navigate("/chat");
+      } else {
+        // If no user, show an error from the response message
+        toast({
+          title: "Error",
+          description: data.message || "An error occurred",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     } catch (error) {
       console.log(error);
-
-      toast({
-        title: "Error",
-        description: error.response.data.message || "An error occurred",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
     }
     setLoading(false);
   };
@@ -167,7 +172,6 @@ const Login = () => {
             </Button>
 
             <Text color="gray.600">
-              Don't have an account?{" "}
               <Link
                 to="/register"
                 style={{
