@@ -1,8 +1,14 @@
 {
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/vite"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://mern-chat-backend.onrender.com/api/$1"
+      "destination": "https://mern-chat-application-ks6s.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
