@@ -19,8 +19,6 @@ const corsOptions = {
     "http://localhost:5173",
     "http://localhost:3000",
     "https://mern-chat-application-woad.vercel.app",
-    "https://your-vercel-deployment-url.vercel.app", // Replace with your actual Vercel URL
-    // Add any other frontend URLs you might use
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
