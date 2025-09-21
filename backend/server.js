@@ -12,18 +12,21 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+const corsOptions = {
+  origin: [
+    "http://localhost:5173",
+    "https://mern-chat-application-woad.vercel.app",
+  ],
+  methods: ["GET", "POST"],
+  credentials: true,
+};
+
 const io = socketio(server, {
-  cors: {
-    origin: [
-      "http://localhost:5173",
-      "https://mern-chat-application-woad.vercel.app",
-    ],
-    methods: ["GET", "POST"],
-    Credentials: true,
-  },
+  cors: corsOptions,
 });
+
 //middleware
-app.use(cors());
+app.use(cors(corsOptions)); // <-- Apply the options here
 app.use(express.json());
 //connect to db
 mongoose
