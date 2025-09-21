@@ -47,7 +47,7 @@ const socketIo = (io) => {
     //Triggered when user sends a new message
     socket.on("new message", (message) => {
       //broadcast message to all other users in the room
-      socket.to(message.groupId).emit("message recieved", message);
+      io.in(message.groupId).emit("message received", message);
     });
 
     //*End  New Message handler

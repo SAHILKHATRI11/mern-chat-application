@@ -14,14 +14,11 @@ import {
 } from "@chakra-ui/react";
 import { FiSend, FiInfo, FiMessageCircle } from "react-icons/fi";
 import UsersList from "./UsersList";
-import { useRef, useState } from "react";
-import { useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import apiURL from "../../utils";
 
 const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
-  console.log(selectedGroup?._id);
-
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [connectedUsers, setConnectedUsers] = useState([]);
@@ -31,17 +28,23 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
   const typingTimeoutRef = useRef(null);
   const toast = useToast();
 
-  const currentUser = JSON.parse(localStorage.getItem("userInfo") || {});
+  const currentUser = JSON.parse(localStorage.getItem("userInfo") || "{}");
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
   useEffect(() => {
     if (selectedGroup && socket) {
-      //fetch messages
       fetchMessages();
-      socket.emit("join room", selectedGroup?._id);
-      socket.on("message receive", (newMessage) => {
-        setMessages((prev) => [...prev, newMessage]);
+      socket.emit("join room", selectedGroup._id);
+
+      // Listen for the corrected 'message received' event
+      socket.on("message received", (newMessage) => {
+        // Only update state if the message belongs to the selected group
+        if (newMessage.group === selectedGroup._id) {
+          setMessages((prev) => [...prev, newMessage]);
+        }
       });
 
       socket.on("users in room", (users) => {
@@ -81,9 +84,10 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
           return newSet;
         });
       });
-      //clean up
+
+      // Cleanup listeners on component unmount or group change
       return () => {
-        socket.emit("leave room", selectedGroup?._id);
+        socket.emit("leave room", selectedGroup._id);
         socket.off("message received");
         socket.off("users in room");
         socket.off("user joined");
@@ -94,13 +98,13 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
       };
     }
   }, [selectedGroup, socket, toast]);
-  //fetch messages
+
   const fetchMessages = async () => {
-    const currentUser = JSON.parse(localStorage.getItem("userInfo") || {});
+    if (!selectedGroup) return;
     const token = currentUser?.token;
     try {
       const { data } = await axios.get(
-        `${apiURL}/api/messages/${selectedGroup?._id}`,
+        `${apiURL}/api/messages/${selectedGroup._id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -108,10 +112,15 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
       setMessages(data);
     } catch (error) {
       console.log(error);
+      toast({
+        title: "Error fetching messages",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     }
   };
 
-  //send message
   const sendMessage = async () => {
     if (!newMessage.trim()) {
       return;
@@ -128,12 +137,13 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+      // Emit the message to the server, which will broadcast it back to everyone
       socket.emit("new message", {
         ...data,
-        groupId: selectedGroup?._id,
+        group: selectedGroup?._id,
       });
 
-      setMessages([...messages, data]);
+      // DO NOT set messages here to prevent duplication
       setNewMessage("");
     } catch (error) {
       toast({
@@ -144,102 +154,56 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
       });
     }
   };
-  //handleTyping
+
   const handleTyping = (e) => {
     setNewMessage(e.target.value);
     if (!isTyping && selectedGroup) {
       setIsTyping(true);
       socket.emit("typing", {
-        groupId: selectedGroup?._id,
+        groupId: selectedGroup._id,
         username: currentUser.username,
       });
     }
-    //clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    //set new timeout
     typingTimeoutRef.current = setTimeout(() => {
       if (selectedGroup) {
         socket.emit("stop typing", {
-          groupId: selectedGroup?._id,
+          groupId: selectedGroup._id,
+          username: currentUser.username,
         });
       }
       setIsTyping(false);
     }, 2000);
   };
-  //format time
+
   const formatTime = (date) => {
     return new Date(date).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
-  //render typing indicator
-  const renderTypingIndicator = () => {
-    if (typingUsers.size === 0) return null;
-    const typingUsersArray = Array.from(typingUsers);
 
-    return typingUsersArray?.map((username) => (
-      <Box
-        key={username}
-        alignSelf={
-          username === currentUser?.username ? "flex-start" : "flex-end"
-        }
-        maxW="70%"
-      >
-        <Flex
-          align="center"
-          bg={username === currentUser?.username ? "blue.50" : "gray.50"}
-          p={2}
-          borderRadius="lg"
-          gap={2}
-        >
-          {/* current user (You) -left side */}
-          {username === currentUser?.username ? (
-            <>
-              <Avatar size="xs" name={username} />
-              <Flex align="center" gap={1}>
-                <Text fontSize="sm" color="gray.500" fontStyle="italic">
-                  You are typing
-                </Text>
-                <Flex gap={1}>
-                  {[1, 2, 3].map((dot) => (
-                    <Box
-                      key={dot}
-                      w="3px"
-                      h="3px"
-                      borderRadius="full"
-                      bg="gray.500"
-                    />
-                  ))}
-                </Flex>
-              </Flex>
-            </>
-          ) : (
-            <>
-              <Flex align="center" gap={1}>
-                <Text fontSize="sm" color="gray.500" fontStyle="italic">
-                  {username} is typing
-                </Text>
-                <Flex gap={1}>
-                  {[1, 2, 3].map((dot) => (
-                    <Box
-                      key={dot}
-                      w="3px"
-                      h="3px"
-                      borderRadius="full"
-                      bg="gray.500"
-                    />
-                  ))}
-                </Flex>
-              </Flex>
-              <Avatar size="xs" name={username} />
-            </>
-          )}
+  const renderTypingIndicator = () => {
+    const otherTypingUsers = Array.from(typingUsers).filter(
+      (username) => username !== currentUser.username
+    );
+    if (otherTypingUsers.length === 0) return null;
+    const usersText =
+      otherTypingUsers.length === 1
+        ? `${otherTypingUsers[0]} is typing...`
+        : `${otherTypingUsers.join(", ")} are typing...`;
+
+    return (
+      <Box alignSelf="flex-start" maxW="70%">
+        <Flex align="center" p={2} borderRadius="lg" gap={2}>
+          <Text fontSize="sm" color="gray.500" fontStyle="italic">
+            {usersText}
+          </Text>
         </Flex>
       </Box>
-    ));
+    );
   };
 
   return (
@@ -255,7 +219,6 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
         bg="gray.50"
         maxW={{ base: "100%", lg: `calc(100% - 260px)` }}
       >
-        {/* Chat Header */}
         {selectedGroup ? (
           <>
             <Flex
@@ -298,7 +261,6 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
               />
             </Flex>
 
-            {/* Messages Area */}
             <VStack
               flex="1"
               overflowY="auto"
@@ -308,25 +270,21 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
               py={4}
               position="relative"
               sx={{
-                "&::-webkit-scrollbar": {
-                  width: "8px",
-                },
-                "&::-webkit-scrollbar-track": {
-                  width: "10px",
-                },
+                "&::-webkit-scrollbar": { width: "8px" },
+                "&::-webkit-scrollbar-track": { width: "10px" },
                 "&::-webkit-scrollbar-thumb": {
                   background: "gray.200",
                   borderRadius: "24px",
                 },
               }}
             >
-              {messages.map((message) => (
+              {messages.map((message, index) => (
                 <Box
-                  key={message._id}
+                  key={message._id || `msg-${index}`}
                   alignSelf={
                     message.sender._id === currentUser?._id
-                      ? "flex-start"
-                      : "flex-end"
+                      ? "flex-end"
+                      : "flex-start"
                   }
                   maxW="70%"
                 >
@@ -336,37 +294,30 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
                       mb={1}
                       justifyContent={
                         message.sender._id === currentUser?._id
-                          ? "flex-start"
-                          : "flex-end"
+                          ? "flex-end"
+                          : "flex-start"
                       }
                       gap={2}
                     >
-                      {message.sender._id === currentUser?._id ? (
-                        <>
-                          <Avatar size="xs" name={message.sender.username} />
-                          <Text fontSize="xs" color="gray.500">
-                            You • {formatTime(message.createdAt)}
-                          </Text>
-                        </>
-                      ) : (
-                        <>
-                          <Text fontSize="xs" color="gray.500">
-                            {message.sender.username} •{" "}
-                            {formatTime(message.createdAt)}
-                          </Text>
-                          <Avatar size="xs" name={message.sender.username} />
-                        </>
+                      {message.sender._id !== currentUser?._id && (
+                        <Avatar size="xs" name={message.sender.username} />
                       )}
+                      <Text fontSize="xs" color="gray.500">
+                        {message.sender._id === currentUser?._id
+                          ? "You"
+                          : message.sender.username}{" "}
+                        • {formatTime(message.createdAt)}
+                      </Text>
                     </Flex>
 
                     <Box
                       bg={
-                        message?.sender._id === currentUser?._id
+                        message.sender._id === currentUser?._id
                           ? "blue.500"
                           : "white"
                       }
                       color={
-                        message?.sender._id === currentUser?._id
+                        message.sender._id === currentUser?._id
                           ? "white"
                           : "gray.800"
                       }
@@ -383,7 +334,6 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
               <div ref={messagesEndRef} />
             </VStack>
 
-            {/* Message Input */}
             <Box
               p={4}
               bg="white"
@@ -400,10 +350,7 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
                   pr="4.5rem"
                   bg="gray.50"
                   border="none"
-                  _focus={{
-                    boxShadow: "none",
-                    bg: "gray.100",
-                  }}
+                  _focus={{ boxShadow: "none", bg: "gray.100" }}
                   onKeyPress={(e) => {
                     if (e.key === "Enter") {
                       sendMessage();
@@ -416,9 +363,7 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
                     size="sm"
                     colorScheme="blue"
                     borderRadius="full"
-                    _hover={{
-                      transform: "translateY(-1px)",
-                    }}
+                    _hover={{ transform: "translateY(-1px)" }}
                     transition="all 0.2s"
                     onClick={sendMessage}
                   >
@@ -429,33 +374,30 @@ const ChatArea = ({ selectedGroup, socket, setSelectedGroup }) => {
             </Box>
           </>
         ) : (
-          <>
-            <Flex
-              h="100%"
-              direction="column"
-              align="center"
-              justify="center"
-              p={8}
-              textAlign="center"
-            >
-              <Icon
-                as={FiMessageCircle}
-                fontSize="64px"
-                color="gray.300"
-                mb={4}
-              />
-              <Text fontSize="xl" fontWeight="medium" color="gray.500" mb={2}>
-                Welcome to the Chat
-              </Text>
-              <Text color="gray.500" mb={2}>
-                Select a group from the sidebar to start chatting
-              </Text>
-            </Flex>
-          </>
+          <Flex
+            h="100%"
+            direction="column"
+            align="center"
+            justify="center"
+            p={8}
+            textAlign="center"
+          >
+            <Icon
+              as={FiMessageCircle}
+              fontSize="64px"
+              color="gray.300"
+              mb={4}
+            />
+            <Text fontSize="xl" fontWeight="medium" color="gray.500" mb={2}>
+              Welcome to the Chat
+            </Text>
+            <Text color="gray.500" mb={2}>
+              Select a group from the sidebar to start chatting
+            </Text>
+          </Flex>
         )}
       </Box>
 
-      {/* UsersList with responsive width */}
       <Box
         width={{ base: "100%", lg: "260px" }}
         position={{ base: "static", lg: "sticky" }}
