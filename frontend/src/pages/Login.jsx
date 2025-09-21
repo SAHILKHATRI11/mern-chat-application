@@ -31,7 +31,7 @@ const Login = () => {
         password,
       });
       console.log(data.user);
-
+      console.log("Login API Response:", data);
       //save the token into localstorage
       localStorage.setItem("userInfo", JSON.stringify(data.user));
       navigate("/chat");
